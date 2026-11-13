@@ -1,0 +1,45 @@
+name: Build Android APKs
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Build All 3 APKs
+        run: |
+          mkdir -p output_apks
+          for d in android-villager android-pdo android-worker; do
+            if [ -d "$d" ]; then
+              echo "Building in $d..."
+              cd "$d"
+              gradle assembleDebug || true
+              cd ..
+            fi
+          done
+          find . -name "*.apk" -exec cp {} output_apks/ \;
+          ls -la output_apks/
+
+      - name: Upload APKs as Direct Downloads
+        uses: actions/upload-artifact@v4
+        with:
+          name: SmartVillage-3-APKs
+          path: output_apks/*.apk
+          if-no-files-found: warn
