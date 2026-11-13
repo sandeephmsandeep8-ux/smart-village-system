@@ -11,30 +11,33 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up Java 17
+      - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Build All APKs
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install & Run Gradle 8.2
         run: |
+          # Download portable Gradle 8.2 with Android plugin support
+          wget -q https://services.gradle.org/distributions/gradle-8.2-bin.zip
+          unzip -q gradle-8.2-bin.zip
+          export PATH=$PWD/gradle-8.2/bin:$PATH
+          
           mkdir -p output_apks
 
-          # Install gradle on ubuntu runner
-          sudo apt-get update && sudo apt-get install -y gradle
-
-          # Build each app
           for dir in android-villager/app android-pdo/app android-worker/app; do
             if [ -d "$dir" ]; then
               echo "=== Building $dir ==="
               cd "$dir"
-              gradle assembleDebug || true
+              gradle assembleDebug --stacktrace --no-daemon || true
               cd "$GITHUB_WORKSPACE"
             fi
           done
 
-          # Find and copy all APKs
           find . -name "*.apk" -exec cp {} output_apks/ \;
           ls -la output_apks/
 
@@ -43,4 +46,4 @@ jobs:
         with:
           name: SmartVillage-3-APKs
           path: output_apks/*.apk
-          if-no-files-found: ignore
+          if-no-files-found: warn
