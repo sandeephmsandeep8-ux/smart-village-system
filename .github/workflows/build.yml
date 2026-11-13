@@ -11,7 +11,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up Java 17
+      - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
@@ -20,53 +20,17 @@ jobs:
       - name: Build APKs
         run: |
           mkdir -p output_apks
-          
-          # Install gradle command line tool
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq gradle
-
-          for app in android-villager android-pdo android-worker; do
-            echo "=========================================="
-            echo "Setting up $app..."
-            echo "=========================================="
-            
-            # Make sure root project structure exists
-            cat << 'EOF' > $app/settings.gradle
-pluginManagement {
-    repositories {
-        google()
-        mavenCentral()
-        gradlePluginPortal()
-    }
-}
-dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-    repositories {
-        google()
-        mavenCentral()
-    }
-}
-rootProject.name = "SmartVillage"
-include ':app'
-EOF
-
-            cat << 'EOF' > $app/build.gradle
-plugins {
-    id 'com.android.application' version '8.1.4' apply false
-    id 'org.jetbrains.kotlin.android' version '1.9.0' apply false
-}
-EOF
-
-            cd $app
-            gradle :app:assembleDebug --stacktrace || true
-            cd $GITHUB_WORKSPACE
+          for d in *; do
+            if [ -d "$d/app" ]; then
+              echo "include ':app'" > "$d/settings.gradle"
+              cd "$d"
+              gradle assembleDebug || true
+              cd ..
+            fi
           done
+          find . -name "*.apk" -exec cp {} output_apks/ \;
 
-          # Copy any generated APKs
-          find . -name "*.apk" -exec cp -v {} output_apks/ \;
-          ls -la output_apks/
-
-      - name: Upload APKs as Direct Downloads
+      - name: Upload APKs
         uses: actions/upload-artifact@v4
         with:
           name: SmartVillage-3-APKs
