@@ -8,65 +8,29 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Build APKs using Built-in Android Tools
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Build Android Apps
         run: |
           mkdir -p output_apks
-
-          # Export pre-installed Android SDK environment
-          export ANDROID_HOME=$ANDROID_SDK_ROOT
-          export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH
-
-          echo "Android SDK location: $ANDROID_HOME"
-
-          # Process and build each app
-          for app in android-villager android-pdo android-worker; do
-            if [ -d "$app" ]; then
-              echo "=========================================="
-              echo "Building $app"
-              echo "=========================================="
-
-              # Create root settings.gradle and build.gradle if missing
-              if [ ! -f "$app/settings.gradle" ]; then
-                echo "include ':app'" > "$app/settings.gradle"
-              fi
-
-              if [ ! -f "$app/build.gradle" ]; then
-                cat << 'EOF' > "$app/build.gradle"
-buildscript {
-    repositories {
-        google()
-        mavenCentral()
-    }
-    dependencies {
-        classpath 'com.android.tools.build:gradle:8.1.4'
-        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.0'
-    }
-}
-allprojects {
-    repositories {
-        google()
-        mavenCentral()
-    }
-}
-EOF
-              fi
-
-              cd "$app"
-              gradle assembleDebug --stacktrace --no-daemon || true
-              cd "$GITHUB_WORKSPACE"
+          for dir in android-villager/app android-pdo/app android-worker/app; do
+            if [ -d "$dir" ]; then
+              cd "$dir"
+              gradle assembleDebug || true
+              cd $GITHUB_WORKSPACE
             fi
           done
-
-          # Gather all produced APK files
-          echo "=========================================="
-          echo "Searching for APK files..."
-          find . -name "*.apk" -exec cp -v {} output_apks/ \;
+          find . -name "*.apk" -exec cp {} output_apks/ \;
           ls -la output_apks/
 
-      - name: Upload APKs as Direct Downloads
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: SmartVillage-3-APKs
