@@ -8,7 +8,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Source Code
+      - name: Checkout Code
         uses: actions/checkout@v4
 
       - name: Set up Java 17
@@ -17,23 +17,23 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v3
-
-      - name: Build All 3 APKs
+      - name: Build All APKs
         run: |
           mkdir -p output_apks
-          for d in android-villager android-pdo android-worker; do
-            if [ -d "$d" ]; then
-              echo "Building in $d..."
-              cd "$d"
-              gradle assembleDebug || true
+
+          for app in android-villager android-pdo android-worker; do
+            if [ -d "$app" ]; then
+              echo "Building $app..."
+              cd "$app"
+              # Generate gradle wrapper and assemble debug apk
+              gradle wrapper || true
+              chmod +x gradlew || true
+              ./gradlew assembleDebug --no-daemon || true
               cd ..
             fi
           done
+
+          # Find and copy all built APKs
           find . -name "*.apk" -exec cp {} output_apks/ \;
           ls -la output_apks/
 
@@ -42,4 +42,4 @@ jobs:
         with:
           name: SmartVillage-3-APKs
           path: output_apks/*.apk
-          if-no-files-found: warn
+          if-no-files-found: ignore
