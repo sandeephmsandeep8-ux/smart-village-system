@@ -11,32 +11,59 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up Java 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Build Standalone APKs
+      - name: Build APKs using Built-in Android Tools
         run: |
           mkdir -p output_apks
 
+          # Export pre-installed Android SDK environment
+          export ANDROID_HOME=$ANDROID_SDK_ROOT
+          export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH
+
+          echo "Android SDK location: $ANDROID_HOME"
+
+          # Process and build each app
           for app in android-villager android-pdo android-worker; do
-            if [ -d "$app/app" ]; then
-              echo "=== Configuring $app ==="
-              # Create settings.gradle so gradle recognizes it as a valid project
-              echo "include ':app'" > "$app/settings.gradle"
-              
+            if [ -d "$app" ]; then
+              echo "=========================================="
+              echo "Building $app"
+              echo "=========================================="
+
+              # Create root settings.gradle and build.gradle if missing
+              if [ ! -f "$app/settings.gradle" ]; then
+                echo "include ':app'" > "$app/settings.gradle"
+              fi
+
+              if [ ! -f "$app/build.gradle" ]; then
+                cat << 'EOF' > "$app/build.gradle"
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.1.4'
+        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.0'
+    }
+}
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+EOF
+              fi
+
               cd "$app"
-              gradle :app:assembleDebug --stacktrace --no-daemon || true
+              gradle assembleDebug --stacktrace --no-daemon || true
               cd "$GITHUB_WORKSPACE"
             fi
           done
 
-          find . -name "*.apk" -exec cp {} output_apks/ \;
+          # Gather all produced APK files
+          echo "=========================================="
+          echo "Searching for APK files..."
+          find . -name "*.apk" -exec cp -v {} output_apks/ \;
           ls -la output_apks/
 
       - name: Upload APKs as Direct Downloads
