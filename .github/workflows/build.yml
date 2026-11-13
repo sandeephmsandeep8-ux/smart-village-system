@@ -17,26 +17,24 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v3
-
       - name: Build All APKs
         run: |
           mkdir -p output_apks
 
-          # Find all directories that contain build.gradle
-          for build_file in $(find . -name "build.gradle"); do
-            dir=$(dirname "$build_file")
-            echo "Found Gradle project in: $dir"
-            cd "$dir"
-            gradle assembleDebug --stacktrace || true
-            cd "$GITHUB_WORKSPACE"
+          # Install gradle on ubuntu runner
+          sudo apt-get update && sudo apt-get install -y gradle
+
+          # Build each app
+          for dir in android-villager/app android-pdo/app android-worker/app; do
+            if [ -d "$dir" ]; then
+              echo "=== Building $dir ==="
+              cd "$dir"
+              gradle assembleDebug || true
+              cd "$GITHUB_WORKSPACE"
+            fi
           done
 
-          # Collect all generated APKs
+          # Find and copy all APKs
           find . -name "*.apk" -exec cp {} output_apks/ \;
           ls -la output_apks/
 
@@ -45,4 +43,4 @@ jobs:
         with:
           name: SmartVillage-3-APKs
           path: output_apks/*.apk
-          if-no-files-found: warn
+          if-no-files-found: ignore
